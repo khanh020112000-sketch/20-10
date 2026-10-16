@@ -1,0 +1,852 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Thiệp Chúc Mừng 20/10 - Pit TK & Tạo Mã QR</title>
+  
+  <!-- Font Awesome Icons & QRCode.js CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: #030308;
+      color: #fff;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    /* Fullscreen Canvas for background & main graphics */
+    canvas#mainCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* --- OVERLAY START SCREEN --- */
+    #startOverlay {
+      position: absolute;
+      inset: 0;
+      z-index: 100;
+      background: rgba(3, 3, 8, 0.94);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+      transition: opacity 0.8s ease, visibility 0.8s ease;
+    }
+
+    #startOverlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .start-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.25), inset 0 0 20px rgba(255, 117, 140, 0.2);
+      border-radius: 24px;
+      padding: 35px 25px;
+      max-width: 400px;
+      width: 100%;
+      animation: pulseGlow 3s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.2), inset 0 0 10px rgba(255, 117, 140, 0.2); }
+      100% { box-shadow: 0 0 45px rgba(255, 117, 140, 0.45), inset 0 0 25px rgba(0, 240, 255, 0.4); }
+    }
+
+    .start-title {
+      font-size: 1.6rem;
+      color: #00f0ff;
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    .start-subtitle {
+      font-size: 1rem;
+      color: #e0e0e0;
+      line-height: 1.6;
+      margin-bottom: 25px;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #00f0ff, #ff758c);
+      border: none;
+      color: #fff;
+      padding: 14px 32px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(255, 117, 140, 0.4);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .start-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* --- TOP FLOATING ACTION BUTTONS --- */
+    .top-bar {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 50;
+      display: flex;
+      gap: 12px;
+    }
+
+    .action-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 18px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+      transition: transform 0.2s ease, background 0.3s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.92);
+    }
+
+    .disc-spinning {
+      animation: rotateDisc 4s linear infinite;
+    }
+
+    @keyframes rotateDisc {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* --- REPLAY BUTTON AT BOTTOM --- */
+    .replay-btn {
+      position: fixed;
+      bottom: 25px;
+      z-index: 50;
+      background: rgba(255, 117, 140, 0.25);
+      border: 1px solid rgba(255, 117, 140, 0.6);
+      backdrop-filter: blur(10px);
+      color: #fff;
+      padding: 10px 22px;
+      font-size: 0.95rem;
+      border-radius: 30px;
+      cursor: pointer;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.8s ease, visibility 0.8s ease, transform 0.2s;
+    }
+
+    .replay-btn.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .replay-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* --- MODAL DIALOG FOR QR GENERATOR --- */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .qr-card {
+      background: #121324;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: 0 10px 40px rgba(0, 240, 255, 0.3);
+      border-radius: 20px;
+      padding: 25px 20px;
+      max-width: 380px;
+      width: 100%;
+      text-align: center;
+      position: relative;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .qr-card {
+      transform: scale(1);
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 20px;
+      cursor: pointer;
+    }
+
+    .close-btn:hover {
+      color: #fff;
+    }
+
+    .qr-title {
+      font-size: 1.3rem;
+      color: #ff758c;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .qr-desc {
+      font-size: 0.85rem;
+      color: #bbb;
+      margin-bottom: 18px;
+      line-height: 1.4;
+    }
+
+    .qr-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .qr-input {
+      width: 100%;
+      padding: 12px 15px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(255, 255, 255, 0.07);
+      color: #fff;
+      font-size: 0.95rem;
+      outline: none;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .qr-input:focus {
+      border-color: #00f0ff;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .qr-box {
+      background: #ffffff;
+      padding: 15px;
+      border-radius: 16px;
+      display: inline-block;
+      margin: 10px auto;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    #qrcode img, #qrcode canvas {
+      display: block;
+      margin: 0 auto;
+    }
+
+    .qr-download-btn {
+      width: 100%;
+      background: linear-gradient(135deg, #ff758c, #ff4d8d);
+      border: none;
+      color: #fff;
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      box-shadow: 0 4px 15px rgba(255, 117, 140, 0.4);
+    }
+
+    .qr-download-btn:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Overlay Bắt Đầu -->
+  <div id="startOverlay">
+    <div class="start-card">
+      <div class="start-title">💌 Mật Lệnh Đặc Biệt</div>
+      <div class="start-subtitle">Có một thông điệp chân thành được gửi từ <b>Pit TK</b> dành riêng cho bạn nhân ngày 20/10...</div>
+      <button class="start-btn" onclick="startExperience()">
+        <span>Mở Thiệp Ngay</span> ✨
+      </button>
+    </div>
+  </div>
+
+  <!-- Background & Animation Canvas -->
+  <canvas id="mainCanvas"></canvas>
+
+  <!-- Nút Tác Vụ Góc Trên -->
+  <div class="top-bar">
+    <div class="action-btn" id="qrBtn" title="Tạo mã QR" onclick="openQRModal()">
+      <i class="fa-solid fa-qrcode"></i>
+    </div>
+    <div class="action-btn" id="musicBtn" title="Bật/Tắt nhạc" onclick="togglePlayMusic()">
+      <span id="musicIcon"><i class="fa-solid fa-music"></i></span>
+    </div>
+  </div>
+
+  <!-- Nút Xem Lại Màn Chơi -->
+  <button class="replay-btn" id="replayBtn" onclick="restartStory()">🔄 Xem lại từ đầu</button>
+
+  <!-- Modal Tạo Mã QR -->
+  <div class="modal-overlay" id="qrModal">
+    <div class="qr-card">
+      <button class="close-btn" onclick="closeQRModal()"><i class="fa-solid fa-xmark"></i></button>
+      <div class="qr-title"><i class="fa-solid fa-qrcode"></i> Tạo Mã QR Thiệp</div>
+      <div class="qr-desc">Dán link web thiệp của bạn vào đây để tự sinh mã QR. Lưu ảnh lại gửi cho người ấy quét nhé!</div>
+      
+      <div class="qr-input-group">
+        <input type="text" id="qrLinkInput" class="qr-input" placeholder="Dán đường link web vào đây...">
+      </div>
+
+      <div class="qr-box">
+        <div id="qrcode"></div>
+      </div>
+
+      <button class="qr-download-btn" onclick="downloadQRCode()">
+        <i class="fa-solid fa-download"></i> Tải Mã QR Về Máy
+      </button>
+    </div>
+  </div>
+
+  <!-- Audio Phát Nhạc Nền -->
+  <audio id="bgMusic" loop preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=lofi-study-112191.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    const bgMusic = document.getElementById('bgMusic');
+    const musicBtn = document.getElementById('musicBtn');
+    const musicIcon = document.getElementById('musicIcon');
+    const startOverlay = document.getElementById('startOverlay');
+    const replayBtn = document.getElementById('replayBtn');
+    const qrModal = document.getElementById('qrModal');
+    const qrLinkInput = document.getElementById('qrLinkInput');
+
+    let width, height;
+
+    function resize() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // --- KỊCH BẢN THIỆP CHÚC MỪNG 20/10 ---
+    const script = [
+      {
+        text: "Hôm nay tớ nhận lệnh từ Pit TK là...",
+        type: "intro",
+        duration: 4000,
+        robotMood: "normal"
+      },
+      {
+        text: "ui cậu đẹp quá ✨",
+        type: "blush",
+        duration: 3500,
+        robotMood: "blush"
+      },
+      {
+        text: "à thì... cũng sắp 20/10 rồi nè 🌸",
+        type: "flower",
+        duration: 4000,
+        robotMood: "happy"
+      },
+      {
+        text: "nên là tớ muốn nhắn gửi tới cậu...",
+        type: "space",
+        duration: 4000,
+        robotMood: "normal"
+      },
+      {
+        text: "Chúc cậu thật nhiều sức khỏe, luôn ngập tràn niềm vui\nvà lúc nào cũng luôn luôn xinh đẹp ❤️",
+        type: "hearts",
+        duration: 6000,
+        robotMood: "happy"
+      },
+      {
+        text: "Chúc cho mọi ước mơ của cậu đều trở thành hiện thực,\nvà nụ cười lấp lánh sẽ luôn hiện trên môi 😊",
+        type: "stars",
+        duration: 6000,
+        robotMood: "happy"
+      },
+      {
+        text: "Mong rằng từng ngày trôi qua của cậu\nđều dịu dàng và bình yên như một giấc mơ ✨",
+        type: "dream",
+        duration: 6000,
+        robotMood: "blush"
+      },
+      {
+        text: "Chúc mừng Ngày Phụ nữ Việt Nam 20/10!\nHappy Women's Day ✨💖",
+        type: "fireworks",
+        duration: 100000,
+        robotMood: "happy"
+      }
+    ];
+
+    let currentScene = 0;
+    let sceneStartTime = 0;
+    let isStarted = false;
+    let typedText = "";
+    let lastCharTime = 0;
+
+    // --- HIỆU ỨNG NỀN & HẠT ---
+    const stars = Array.from({ length: 120 }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      r: Math.random() * 1.5 + 0.5,
+      alpha: Math.random(),
+      speed: Math.random() * 0.02 + 0.005
+    }));
+
+    const meteors = [];
+    function spawnMeteor() {
+      if (Math.random() < 0.03) {
+        meteors.push({
+          x: Math.random() * width * 1.2,
+          y: -20,
+          length: Math.random() * 80 + 50,
+          speed: Math.random() * 6 + 4,
+          alpha: 1
+        });
+      }
+    }
+
+    const particles = [];
+    function spawnParticles(type, count = 1) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: Math.random() * width,
+          y: height + 20,
+          vx: (Math.random() - 0.5) * 1.8,
+          vy: -(Math.random() * 2 + 1),
+          size: Math.random() * 10 + 8,
+          alpha: 1,
+          rot: Math.random() * Math.PI * 2,
+          vRot: (Math.random() - 0.5) * 0.05,
+          type: type
+        });
+      }
+    }
+
+    const fireworks = [];
+    function createFirework(x, y) {
+      const colors = ['#00f0ff', '#ff758c', '#fffa65', '#ff4d8d', '#7d5fff'];
+      const count = 35;
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 / count) * i;
+        const speed = Math.random() * 3 + 1.5;
+        fireworks.push({
+          x: x,
+          y: y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          alpha: 1,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          size: Math.random() * 3 + 1.5
+        });
+      }
+    }
+
+    // --- VẼ ROBOT NEON ---
+    function drawRobot(x, y, size, color, mood) {
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 18;
+
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.roundRect(x - size/2, y - size/2, size, size, 16);
+      ctx.fill();
+
+      ctx.fillStyle = '#080814';
+      ctx.beginPath();
+      ctx.roundRect(x - size/2 + 4, y - size/2 + 4, size - 8, size - 8, 12);
+      ctx.fill();
+
+      ctx.fillStyle = color;
+      ctx.shadowBlur = 10;
+
+      if (mood === 'blink') {
+        ctx.fillRect(x - 16, y - 2, 10, 3);
+        ctx.fillRect(x + 6, y - 2, 10, 3);
+      } else if (mood === 'happy') {
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = color;
+        ctx.beginPath();
+        ctx.arc(x - 11, y, 6, Math.PI, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(x + 11, y, 6, Math.PI, 0);
+        ctx.stroke();
+      } else {
+        ctx.beginPath();
+        ctx.arc(x - 11, y - 2, 5, 0, Math.PI * 2);
+        ctx.arc(x + 11, y - 2, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (mood === 'blush') {
+        ctx.strokeStyle = '#ff4d8d';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - 20, y + 8); ctx.lineTo(x - 16, y + 14);
+        ctx.moveTo(x - 16, y + 8); ctx.lineTo(x - 12, y + 14);
+        ctx.moveTo(x + 12, y + 8); ctx.lineTo(x + 16, y + 14);
+        ctx.moveTo(x + 16, y + 8); ctx.lineTo(x + 20, y + 14);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x, y - size/2);
+      ctx.lineTo(x, y - size/2 - 10);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y - size/2 - 13, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- VẼ CÁC TRANG TRÍ MẶT ĐẮT & CỔNG SAO ---
+    function drawDecorations(type) {
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.75);
+      ctx.lineTo(width, height * 0.75);
+      ctx.stroke();
+
+      if (type === 'flower') {
+        ctx.fillStyle = '#ff758c';
+        for (let i = -3; i <= 3; i++) {
+          let fx = width / 2 + i * 80;
+          let fy = height * 0.75;
+          ctx.beginPath();
+          ctx.arc(fx, fy - 10, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (type === 'space' || type === 'stars') {
+        ctx.save();
+        ctx.translate(width / 2, height * 0.65);
+        ctx.rotate(Date.now() * 0.0008);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+        ctx.shadowColor = '#00f0ff';
+        ctx.shadowBlur = 15;
+        ctx.strokeRect(-20, -20, 40, 40);
+        ctx.restore();
+      }
+    }
+
+    // --- RENDER HẠT & PHÁO HOA ---
+    function renderEffects() {
+      spawnMeteor();
+      for (let i = meteors.length - 1; i >= 0; i--) {
+        let m = meteors[i];
+        m.x -= m.speed;
+        m.y += m.speed;
+        m.alpha -= 0.01;
+
+        ctx.strokeStyle = `rgba(0, 240, 255, ${Math.max(0, m.alpha)})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(m.x, m.y);
+        ctx.lineTo(m.x + m.length, m.y - m.length);
+        ctx.stroke();
+
+        if (m.alpha <= 0) meteors.splice(i, 1);
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.rot += p.vRot;
+        p.alpha -= 0.0025;
+
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, p.alpha);
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+
+        if (p.type === 'heart') {
+          ctx.fillStyle = '#ff4d8d';
+          ctx.beginPath();
+          ctx.arc(-4, -4, 5, Math.PI, 0);
+          ctx.arc(4, -4, 5, Math.PI, 0);
+          ctx.lineTo(0, 6);
+          ctx.closePath();
+          ctx.fill();
+        } else if (p.type === 'flower') {
+          ctx.fillStyle = '#ff758c';
+          for (let j = 0; j < 5; j++) {
+            ctx.rotate((Math.PI * 2) / 5);
+            ctx.beginPath();
+            ctx.arc(0, 4, 3, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        } else {
+          ctx.fillStyle = '#fffa65';
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+
+        if (p.alpha <= 0) particles.splice(i, 1);
+      }
+
+      if (script[currentScene].type === 'fireworks' && Math.random() < 0.05) {
+        createFirework(Math.random() * width, Math.random() * height * 0.5);
+      }
+
+      for (let i = fireworks.length - 1; i >= 0; i--) {
+        let f = fireworks[i];
+        f.x += f.vx;
+        f.y += f.vy;
+        f.vy += 0.03;
+        f.alpha -= 0.015;
+
+        ctx.fillStyle = f.color;
+        ctx.globalAlpha = Math.max(0, f.alpha);
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, f.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (f.alpha <= 0) fireworks.splice(i, 1);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // --- MAIN ANIMATION LOOP ---
+    function render() {
+      ctx.fillStyle = '#030308';
+      ctx.fillRect(0, 0, width, height);
+
+      for (let s of stars) {
+        s.alpha += s.speed;
+        if (s.alpha > 1 || s.alpha < 0) s.speed = -s.speed;
+        ctx.fillStyle = `rgba(255, 255, 255, ${Math.abs(s.alpha)})`;
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (isStarted) {
+        let now = Date.now();
+        let elapsed = now - sceneStartTime;
+        let currentData = script[currentScene];
+
+        if (currentData.type === 'flower') spawnParticles('flower', 1);
+        if (currentData.type === 'hearts') spawnParticles('heart', 1);
+        if (currentData.type === 'stars' || currentData.type === 'dream') spawnParticles('star', 1);
+
+        let fullText = currentData.text;
+        if (now - lastCharTime > 40 && typedText.length < fullText.length) {
+          typedText = fullText.substring(0, typedText.length + 1);
+          lastCharTime = now;
+        }
+
+        if (elapsed >= currentData.duration && currentScene < script.length - 1) {
+          currentScene++;
+          sceneStartTime = Date.now();
+          typedText = "";
+          
+          if (currentScene === script.length - 1) {
+            replayBtn.classList.add('visible');
+          }
+        }
+
+        drawDecorations(currentData.type);
+        renderEffects();
+
+        let centerY = height * 0.52;
+        let robotSize = Math.min(width * 0.16, 70);
+        let spacing = Math.min(width * 0.22, 110);
+
+        let leftX = width / 2 - spacing;
+        let rightX = width / 2 + spacing;
+
+        let mood = currentData.robotMood;
+        if (mood === 'normal' && Math.floor(now / 2000) % 4 === 0) mood = 'blink';
+
+        drawRobot(leftX, centerY, robotSize, '#00f0ff', mood);
+        drawRobot(rightX, centerY, robotSize, '#00f0ff', mood);
+
+        ctx.save();
+        ctx.fillStyle = '#ffffff';
+        let fontSize = Math.min(width * 0.045, 20);
+        ctx.font = `600 ${fontSize}px "Segoe UI", sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(0, 240, 255, 0.7)';
+        ctx.shadowBlur = 10;
+
+        let lines = typedText.split('\n');
+        let textBaseY = height * 0.28 - ((lines.length - 1) * fontSize * 0.7);
+
+        lines.forEach((line, idx) => {
+          ctx.fillText(line, width / 2, textBaseY + idx * (fontSize * 1.4));
+        });
+        ctx.restore();
+      }
+
+      requestAnimationFrame(render);
+    }
+
+    render();
+
+    // --- BẮT ĐẦU TRẢI NGHIỆM ---
+    function startExperience() {
+      startOverlay.classList.add('hidden');
+      isStarted = true;
+      sceneStartTime = Date.now();
+      lastCharTime = Date.now();
+      
+      bgMusic.volume = 0;
+      bgMusic.play().then(() => {
+        musicBtn.classList.add('disc-spinning');
+        let vol = 0;
+        let fadeInterval = setInterval(() => {
+          if (vol < 0.8) {
+            vol += 0.05;
+            bgMusic.volume = vol;
+          } else {
+            clearInterval(fadeInterval);
+          }
+        }, 100);
+      }).catch(err => {
+        console.log("Audio block", err);
+      });
+    }
+
+    function togglePlayMusic() {
+      if (!bgMusic.paused) {
+        bgMusic.pause();
+        musicBtn.classList.remove('disc-spinning');
+      } else {
+        bgMusic.play();
+        musicBtn.classList.add('disc-spinning');
+      }
+    }
+
+    function restartStory() {
+      currentScene = 0;
+      sceneStartTime = Date.now();
+      typedText = "";
+      particles.length = 0;
+      fireworks.length = 0;
+      replayBtn.classList.remove('visible');
+    }
+
+    // --- QR CODE GENERATOR LOGIC ---
+    let qrcodeObj = null;
+
+    function openQRModal() {
+      qrModal.classList.add('active');
+      if (!qrLinkInput.value) {
+        qrLinkInput.value = window.location.href; // Default to current web URL
+      }
+      generateQRCode();
+    }
+
+    function closeQRModal() {
+      qrModal.classList.remove('active');
+    }
+
+    function generateQRCode() {
+      const link = qrLinkInput.value.trim() || window.location.href;
+      const qrContainer = document.getElementById("qrcode");
+      qrContainer.innerHTML = ""; // Clear old QR
+
+      qrcodeObj = new QRCode(qrContainer, {
+        text: link,
+        width: 180,
+        height: 180,
+        colorDark : "#0d0e15",
+        colorLight : "#ffffff",
+        correctLevel : QRCode.CorrectLevel.H
+      });
+    }
+
+    qrLinkInput.addEventListener('input', generateQRCode);
+
+    function downloadQRCode() {
+      const qrContainer = document.getElementById("qrcode");
+      const img = qrContainer.querySelector("img");
+      const canvasEl = qrContainer.querySelector("canvas");
+
+      let imageSrc = "";
+      if (img && img.src) {
+        imageSrc = img.src;
+      } else if (canvasEl) {
+        imageSrc = canvasEl.toDataURL("image/png");
+      }
+
+      if (imageSrc) {
+        const link = document.createElement("a");
+        link.href = imageSrc;
+        link.download = "Ma_QR_Thiep_20-10_PitTK.png";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    }
+  </script>
+</body>
+</html>
